@@ -2,11 +2,14 @@
 
 
 [[projects]]
-  digest = "1:173cdda00276d13379ebc355be090d1cb42813a34875a3bd4a277730f94f47a3"
+  digest = "1:417f6ac3f691c8d0ee3dd9840f504c536b6e1bf30c64a49e233a9486fba54131"
   name = "cloud.google.com/go"
   packages = [
     "compute/metadata",
     "internal/version",
+    "logging",
+    "logging/apiv2",
+    "logging/internal",
     "monitoring/apiv3",
     "trace/apiv2",
   ]
@@ -191,7 +194,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:7457f165c888092e48fc09421d7e5d5dfe8643c03422acd26e440566032097e7"
+  digest = "1:5e318e970f3b9703ac597db7171f58a9c81cfd946ef5dbabb02d4f7f7903fea5"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
@@ -200,6 +203,8 @@
     "googleapis/api/metric",
     "googleapis/api/monitoredres",
     "googleapis/devtools/cloudtrace/v2",
+    "googleapis/logging/type",
+    "googleapis/logging/v2",
     "googleapis/monitoring/v3",
     "googleapis/rpc/status",
     "protobuf/field_mask",
@@ -247,6 +252,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "cloud.google.com/go/logging",
     "contrib.go.opencensus.io/exporter/stackdriver",
     "github.com/golang/protobuf/proto",
     "github.com/pkg/errors",
@@ -254,6 +260,7 @@
     "go.opencensus.io/stats/view",
     "go.opencensus.io/trace",
     "golang.org/x/net/context",
+    "google.golang.org/api/option",
     "google.golang.org/grpc",
     "google.golang.org/grpc/codes",
     "google.golang.org/grpc/status",

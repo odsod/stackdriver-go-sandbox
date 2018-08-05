@@ -6,6 +6,9 @@ import (
 	"log"
 	"time"
 
+	"os"
+
+	"cloud.google.com/go/logging"
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/odsod/stackdriver-go-sandbox/api/sandbox"
 	"github.com/pkg/errors"
@@ -22,6 +25,19 @@ var (
 
 func main() {
 	flag.Parse()
+	ctx := context.Background()
+
+	// Check credentials file
+	if _, err := os.Stat(*credentialsFile); err != nil {
+		panic(errors.Wrapf(err, "credentials file not found: %v", *credentialsFile))
+	}
+
+	// Init logging
+	loggingClient, err := logging.NewClient(
+		ctx, *projectID, option.WithCredentialsFile(*credentialsFile))
+	logger := loggingClient.Logger("client").StandardLogger(logging.Info)
+
+	// Init monitoring
 	stackdriverExporter, err := stackdriver.NewExporter(stackdriver.Options{
 		ProjectID: *projectID,
 		MonitoringClientOptions: []option.ClientOption{
@@ -39,7 +55,8 @@ func main() {
 	if err := view.Register(ocgrpc.DefaultClientViews...); err != nil {
 		panic(errors.Wrap(err, "failed to register metric views for gRPC server"))
 	}
-	ctx := context.Background()
+
+	// Connect gRPC client
 	conn, err := grpc.Dial(
 		":3000",
 		grpc.WithStatsHandler(&ocgrpc.ClientHandler{}),
@@ -49,6 +66,8 @@ func main() {
 	}
 	defer conn.Close()
 	client := sandboxpb.NewSandboxClient(conn)
+
+	// Send requests
 	for {
 		ctx, cancel := context.WithTimeout(ctx, 850*time.Millisecond)
 		response, err := client.Ping(ctx, &sandboxpb.PingRequest{Msg: "ping"})
@@ -58,5 +77,6 @@ func main() {
 			continue
 		}
 		log.Printf("Got response: %v", response)
+		logger.Printf("Got response: %v", response)
 	}
 }
