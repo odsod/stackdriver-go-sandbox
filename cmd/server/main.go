@@ -2,24 +2,44 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"math/rand"
 	"net"
 	"time"
 
+	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/odsod/stackdriver-go-sandbox/api/sandbox"
-	"github.com/odsod/stackdriver-go-sandbox/internal/ocextra"
 	"github.com/pkg/errors"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/stats/view"
+	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
+var (
+	projectID       = flag.String("projectID", "", "")
+	credentialsFile = flag.String("credentialsFile", "", "")
+)
+
 func main() {
-	view.RegisterExporter(&ocextra.PrintExporter{})
-	view.SetReportingPeriod(time.Second)
+	flag.Parse()
+	stackdriverExporter, err := stackdriver.NewExporter(stackdriver.Options{
+		ProjectID: *projectID,
+		MonitoringClientOptions: []option.ClientOption{
+			option.WithCredentialsFile(*credentialsFile),
+		},
+		TraceClientOptions: []option.ClientOption{
+			option.WithCredentialsFile(*credentialsFile),
+		},
+	})
+	if err != nil {
+		panic(errors.Wrap(err, "failed to initialize Stackdriver exporter"))
+	}
+	view.RegisterExporter(stackdriverExporter)
+	view.SetReportingPeriod(10 * time.Second)
 	if err := view.Register(ocgrpc.DefaultServerViews...); err != nil {
 		panic(errors.Wrap(err, "failed to register metric views for gRPC server"))
 	}
