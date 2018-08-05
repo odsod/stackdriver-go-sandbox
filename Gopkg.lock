@@ -24,6 +24,26 @@
   version = "v0.8.0"
 
 [[projects]]
+  digest = "1:03cab782b385838203766a195ee6c2d16195e71d5a10d31c1945627f45a222fa"
+  name = "go.opencensus.io"
+  packages = [
+    ".",
+    "internal",
+    "internal/tagencoding",
+    "plugin/ocgrpc",
+    "stats",
+    "stats/internal",
+    "stats/view",
+    "tag",
+    "trace",
+    "trace/internal",
+    "trace/propagation",
+  ]
+  pruneopts = "UT"
+  revision = "e262766cd0d230a1bb7c37281e345e465f19b41b"
+  version = "v0.14.0"
+
+[[projects]]
   branch = "master"
   digest = "1:b5c3834d33445efdc5a8dcb154bed9e4c211edadbf02f6f5cc20c5e9be26a499"
   name = "golang.org/x/net"
@@ -119,6 +139,7 @@
   input-imports = [
     "github.com/golang/protobuf/proto",
     "github.com/pkg/errors",
+    "go.opencensus.io/plugin/ocgrpc",
     "golang.org/x/net/context",
     "google.golang.org/grpc",
     "google.golang.org/grpc/codes",

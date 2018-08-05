@@ -8,18 +8,26 @@ import (
 	"time"
 
 	"github.com/odsod/stackdriver-go-sandbox/api/sandbox"
+	"github.com/odsod/stackdriver-go-sandbox/internal/ocextra"
 	"github.com/pkg/errors"
+	"go.opencensus.io/plugin/ocgrpc"
+	"go.opencensus.io/stats/view"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 func main() {
+	view.RegisterExporter(&ocextra.PrintExporter{})
+	view.SetReportingPeriod(time.Second)
+	if err := view.Register(ocgrpc.DefaultServerViews...); err != nil {
+		panic(errors.Wrap(err, "failed to register metric views for gRPC server"))
+	}
 	lis, err := net.Listen("tcp", ":3000")
 	if err != nil {
 		panic(errors.Wrap(err, "failed to start listener"))
 	}
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.StatsHandler(&ocgrpc.ServerHandler{}))
 	sandboxpb.RegisterSandboxServer(grpcServer, &sandboxServer{})
 	grpcServer.Serve(lis)
 }
