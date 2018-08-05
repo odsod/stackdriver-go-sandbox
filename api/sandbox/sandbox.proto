@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package odsod.sandbox;
+
+option go_package = "sandboxpb";
+
+message PingRequest {
+  string msg = 1;
+}
+
+message PingResponse {
+  string msg = 1;
+}
+
+service Sandbox {
+  rpc Ping(PingRequest) returns (PingResponse) {}
+}

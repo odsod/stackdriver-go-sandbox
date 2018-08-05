@@ -1,0 +1,20 @@
+protoc_version: 3.6.0
+
+excludes:
+  - vendor
+
+lint:
+  rules:
+    remove:
+      - FILE_OPTIONS_REQUIRE_JAVA_MULTIPLE_FILES
+      - FILE_OPTIONS_REQUIRE_JAVA_OUTER_CLASSNAME
+      - FILE_OPTIONS_REQUIRE_JAVA_PACKAGE
+
+gen:
+  go_options:
+    import_path: github.com/odsod/stackdriver-go-sandbox
+  plugins:
+    - name: go
+      type: go
+      flags: plugins=grpc
+      output: .
