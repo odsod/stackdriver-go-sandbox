@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
 	"math/rand"
 	"net"
 	"os"
@@ -12,10 +11,12 @@ import (
 	"cloud.google.com/go/logging"
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/odsod/stackdriver-go-sandbox/api/sandbox"
+	"github.com/odsod/stackdriver-go-sandbox/internal/zapgcp"
 	"github.com/pkg/errors"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -36,18 +37,28 @@ func main() {
 		panic(errors.Wrapf(err, "credentials file not found: %v", *credentialsFile))
 	}
 
+	// Init GCP logger
+	loggingClient, err := logging.NewClient(
+		ctx, *projectID, option.WithCredentialsFile(*credentialsFile))
+	gcpLogger := loggingClient.Logger("server")
+
 	// Init zap logging
-	zapLogger, err := zap.NewDevelopment()
+	zapGCPCore := zapgcp.NewCore(
+		zap.InfoLevel,
+		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
+		gcpLogger,
+		zapgcp.FileAndFunctionSourceLocator)
+	zapConsoleCore := zapcore.NewCore(
+		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
+		zapcore.Lock(os.Stderr),
+		zap.InfoLevel)
+	logger := zap.New(zapcore.NewTee(zapConsoleCore, zapGCPCore))
 	if err != nil {
 		panic(errors.Wrap(err, "failed to initialize logging"))
 	}
+	logger.Info("Starting up: Logging initialized")
 
-	// Init stackdriver logging
-	loggingClient, err := logging.NewClient(
-		ctx, *projectID, option.WithCredentialsFile(*credentialsFile))
-	stackdriverLogger := loggingClient.Logger("server").StandardLogger(logging.Info)
-
-	// Init monitoring
+	logger.Info("Initializing monitoring...")
 	stackdriverExporter, err := stackdriver.NewExporter(stackdriver.Options{
 		ProjectID: *projectID,
 		MonitoringClientOptions: []option.ClientOption{
@@ -58,35 +69,34 @@ func main() {
 		},
 	})
 	if err != nil {
-		panic(errors.Wrap(err, "failed to initialize Stackdriver exporter"))
+		logger.Panic("Failed to initialize Stackdriver exporter", zap.Error(err))
 	}
 	view.RegisterExporter(stackdriverExporter)
 	view.SetReportingPeriod(10 * time.Second)
 	if err := view.Register(ocgrpc.DefaultClientViews...); err != nil {
-		panic(errors.Wrap(err, "failed to register metric views for gRPC server"))
+		logger.Panic("Failed to register metric views for gRPC server", zap.Error(err))
 	}
 
 	// Start server
+	logger.Info("Binding listener...", zap.Int("port", 3000))
 	lis, err := net.Listen("tcp", ":3000")
 	if err != nil {
-		panic(errors.Wrap(err, "failed to start listener"))
+		logger.Panic("Failed to bind listener", zap.Error(err))
 	}
 	grpcServer := grpc.NewServer(grpc.StatsHandler(&ocgrpc.ServerHandler{}))
 	sandboxpb.RegisterSandboxServer(grpcServer, &sandboxServer{
-		zapLogger:         zapLogger,
-		stackdriverLogger: stackdriverLogger,
+		logger: logger,
 	})
+	logger.Info("Starting server...")
 	grpcServer.Serve(lis)
 }
 
 type sandboxServer struct {
-	zapLogger         *zap.Logger
-	stackdriverLogger *log.Logger
+	logger *zap.Logger
 }
 
 func (s *sandboxServer) Ping(_ context.Context, req *sandboxpb.PingRequest) (*sandboxpb.PingResponse, error) {
-	s.zapLogger.Info("Got request", zap.Stringer("request", req))
-	s.stackdriverLogger.Printf("Got request: %v", req)
+	s.logger.Info("Got request", zap.Stringer("request", req))
 	time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
 	switch rand.Intn(10) {
 	case 0:
