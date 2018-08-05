@@ -48,3 +48,7 @@
 [[constraint]]
   name = "cloud.google.com/go"
   version = "0.25.0"
+
+[[constraint]]
+  name = "go.uber.org/zap"
+  version = "1.9.0"

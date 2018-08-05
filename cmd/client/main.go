@@ -3,10 +3,8 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
-	"time"
-
 	"os"
+	"time"
 
 	"cloud.google.com/go/logging"
 	"contrib.go.opencensus.io/exporter/stackdriver"
@@ -14,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/stats/view"
+	"go.uber.org/zap"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 )
@@ -32,10 +31,16 @@ func main() {
 		panic(errors.Wrapf(err, "credentials file not found: %v", *credentialsFile))
 	}
 
-	// Init logging
+	// Init zap logging
+	zapLogger, err := zap.NewDevelopment()
+	if err != nil {
+		panic(errors.Wrap(err, "failed to initialize logging"))
+	}
+
+	// Init Stackdriver logging
 	loggingClient, err := logging.NewClient(
 		ctx, *projectID, option.WithCredentialsFile(*credentialsFile))
-	logger := loggingClient.Logger("client").StandardLogger(logging.Info)
+	stackdriverLogger := loggingClient.Logger("client").StandardLogger(logging.Info)
 
 	// Init monitoring
 	stackdriverExporter, err := stackdriver.NewExporter(stackdriver.Options{
@@ -73,10 +78,11 @@ func main() {
 		response, err := client.Ping(ctx, &sandboxpb.PingRequest{Msg: "ping"})
 		cancel()
 		if err != nil {
-			log.Printf("Got error: %+v", err)
+			zapLogger.Error("Request failed", zap.Error(err))
+			stackdriverLogger.Printf("Got error: %v", err)
 			continue
 		}
-		log.Printf("Got response: %v", response)
-		logger.Printf("Got response: %v", response)
+		zapLogger.Info("Got response", zap.Stringer("response", response))
+		stackdriverLogger.Printf("Got response: %v", response)
 	}
 }
