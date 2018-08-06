@@ -11,6 +11,7 @@ import (
 	"cloud.google.com/go/logging"
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/odsod/stackdriver-go-sandbox/api/sandbox"
+	"github.com/odsod/stackdriver-go-sandbox/internal/zapextra"
 	"github.com/odsod/stackdriver-go-sandbox/internal/zapgcp"
 	"github.com/pkg/errors"
 	"go.opencensus.io/plugin/ocgrpc"
@@ -42,16 +43,20 @@ func main() {
 		ctx, *projectID, option.WithCredentialsFile(*credentialsFile))
 	gcpLogger := loggingClient.Logger("server")
 
-	// Init zap logging
+	// Init zap GCP logging
 	zapGCPCore := zapgcp.NewCore(
 		zap.InfoLevel,
-		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
+		zapcore.NewConsoleEncoder(zapgcp.NewEncoderConfig()),
 		gcpLogger,
 		zapgcp.FileAndFunctionSourceLocator)
+
+	// Init zap console logging
 	zapConsoleCore := zapcore.NewCore(
 		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
 		zapcore.Lock(os.Stderr),
 		zap.InfoLevel)
+
+	// Create zap logger
 	logger := zap.New(zapcore.NewTee(zapConsoleCore, zapGCPCore))
 	if err != nil {
 		panic(errors.Wrap(err, "failed to initialize logging"))
@@ -96,7 +101,7 @@ type sandboxServer struct {
 }
 
 func (s *sandboxServer) Ping(_ context.Context, req *sandboxpb.PingRequest) (*sandboxpb.PingResponse, error) {
-	s.logger.Info("Got request", zap.Stringer("request", req))
+	s.logger.Info("Got request", zapextra.Proto("request", req))
 	time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
 	switch rand.Intn(10) {
 	case 0:
