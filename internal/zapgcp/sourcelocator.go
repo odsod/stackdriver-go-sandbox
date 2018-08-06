@@ -3,16 +3,29 @@ package zapgcp
 import (
 	"runtime"
 
+	"github.com/odsod/stackdriver-go-sandbox/internal/zapgithub"
 	"go.uber.org/zap/zapcore"
 	logpb "google.golang.org/genproto/googleapis/logging/v2"
 )
+
+const gitHubDotCom = "github.com/"
 
 // SourceLocator converts a zap EntryCaller to a LogEntrySourceLocation.
 type SourceLocator func(*zapcore.EntryCaller) *logpb.LogEntrySourceLocation
 
 // NewGitHubSourceLocator returns a locator that resolves an EntryCaller to a GitHub URL.
-func NewGitHubSourceLocator(commitHash string) (SourceLocator, error) {
-	return nil, nil
+func NewGitHubSourceLocator(commitHash string) SourceLocator {
+	// File: "/home/oscar/go/src/github.com/odsod/stackdriver-go-sandbox/cmd/client/main.go"
+	return func(caller *zapcore.EntryCaller) *logpb.LogEntrySourceLocation {
+		if !caller.Defined {
+			return nil
+		}
+		gitHubURL, err := zapgithub.ParseGitHubURL(caller.File, caller.Line, commitHash)
+		if err != nil {
+			return &logpb.LogEntrySourceLocation{File: caller.File, Line: int64(caller.Line)}
+		}
+		return &logpb.LogEntrySourceLocation{File: gitHubURL}
+	}
 }
 
 // FileAndFunctionSourceLocator attempts to resolve the function name of the EntryCaller PC.
@@ -29,9 +42,4 @@ func FileAndFunctionSourceLocator(entryCaller *zapcore.EntryCaller) *logpb.LogEn
 		Line:     int64(entryCaller.Line),
 		Function: functionName,
 	}
-}
-
-// NoSourceLocator always returns nil
-func NoSourceLocator(*zapcore.EntryCaller) *logpb.LogEntrySourceLocation {
-	return nil
 }

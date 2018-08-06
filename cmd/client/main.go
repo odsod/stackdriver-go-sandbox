@@ -11,6 +11,7 @@ import (
 	"github.com/odsod/stackdriver-go-sandbox/api/sandbox"
 	"github.com/odsod/stackdriver-go-sandbox/internal/zapextra"
 	"github.com/odsod/stackdriver-go-sandbox/internal/zapgcp"
+	"github.com/odsod/stackdriver-go-sandbox/internal/zapgithub"
 	"github.com/pkg/errors"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/stats/view"
@@ -23,6 +24,7 @@ import (
 var (
 	projectID       = flag.String("projectID", "", "")
 	credentialsFile = flag.String("credentialsFile", "", "")
+	commitHash      = flag.String("commitHash", "", "")
 )
 
 func main() {
@@ -37,23 +39,46 @@ func main() {
 	// Init GCP logger
 	loggingClient, err := logging.NewClient(
 		ctx, *projectID, option.WithCredentialsFile(*credentialsFile))
+	if err != nil {
+		panic(errors.Wrap(err, "failed to initialize GCP logging client"))
+	}
 	gcpLogger := loggingClient.Logger("server")
 
+	// Init GitHub source locator
+	var sourceLocator zapgcp.SourceLocator
+	var callerEncoder zapcore.CallerEncoder
+	if *commitHash != "" {
+		sourceLocator = zapgcp.NewGitHubSourceLocator(*commitHash)
+		callerEncoder = zapgithub.GitHubCallerEncoder(*commitHash)
+	} else {
+		sourceLocator = zapgcp.FileAndFunctionSourceLocator
+		callerEncoder = zapcore.ShortCallerEncoder
+	}
+
 	// Init zap GCP logging
-	zapGCPCore := zapgcp.NewCore(
+	zapGCPCore := zapgcp.NewLoggingCore(
 		zap.InfoLevel,
-		zapcore.NewConsoleEncoder(zapgcp.NewEncoderConfig()),
+		zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
+			MessageKey:     "+", // anything non-"" includes message
+			StacktraceKey:  "+", // anything non-"" includes stack trace
+			EncodeLevel:    zapcore.CapitalLevelEncoder,
+			EncodeTime:     zapcore.ISO8601TimeEncoder,
+			EncodeDuration: zapcore.StringDurationEncoder,
+			EncodeCaller:   zapcore.ShortCallerEncoder,
+		}),
 		gcpLogger,
-		zapgcp.FileAndFunctionSourceLocator)
+		sourceLocator)
 
 	// Init zap console logging
+	consoleEncoderConfig := zap.NewDevelopmentEncoderConfig()
+	consoleEncoderConfig.EncodeCaller = callerEncoder
 	zapConsoleCore := zapcore.NewCore(
-		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
+		zapcore.NewConsoleEncoder(consoleEncoderConfig),
 		zapcore.Lock(os.Stderr),
 		zap.InfoLevel)
 
 	// Create zap logger
-	logger := zap.New(zapcore.NewTee(zapConsoleCore, zapGCPCore))
+	logger := zap.New(zapcore.NewTee(zapConsoleCore, zapGCPCore)).WithOptions(zap.AddCaller(), zap.AddStacktrace(zap.WarnLevel))
 	if err != nil {
 		panic(errors.Wrap(err, "failed to initialize logging"))
 	}
@@ -96,6 +121,7 @@ func main() {
 		response, err := client.Ping(ctx, req)
 		cancel()
 		if err != nil {
+			err = errors.Wrap(err, "request failed")
 			logger.Error("Request failed", zapextra.Proto("request", req), zap.Error(err))
 			continue
 		}
