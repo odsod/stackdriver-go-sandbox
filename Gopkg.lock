@@ -2,10 +2,12 @@
 
 
 [[projects]]
-  digest = "1:417f6ac3f691c8d0ee3dd9840f504c536b6e1bf30c64a49e233a9486fba54131"
+  digest = "1:94052129a869e2f52548c3c3329b76d4df3cbf47a0445b16717994fce0876b33"
   name = "cloud.google.com/go"
   packages = [
     "compute/metadata",
+    "errorreporting",
+    "errorreporting/apiv1beta1",
     "internal/version",
     "logging",
     "logging/apiv2",
@@ -29,9 +31,18 @@
   version = "v0.5.0"
 
 [[projects]]
-  digest = "1:0db8755cf5a9f477eaa1a1548c6a8730dcbfc2286fbdec399286ebc4042e3763"
+  digest = "1:a2c1d0e43bd3baaa071d1b9ed72c27d78169b2b269f71c105ac4ba34b1be4a39"
+  name = "github.com/davecgh/go-spew"
+  packages = ["spew"]
+  pruneopts = "UT"
+  revision = "346938d642f2ec3594ed81d874461961cd0faa76"
+  version = "v1.1.0"
+
+[[projects]]
+  digest = "1:a900f61eec53062419a966d0cf0f4afdce2eefdf39d976fe2fc7b7289b99c038"
   name = "github.com/golang/protobuf"
   packages = [
+    "jsonpb",
     "proto",
     "protoc-gen-go/descriptor",
     "ptypes",
@@ -61,6 +72,22 @@
   pruneopts = "UT"
   revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
   version = "v0.8.0"
+
+[[projects]]
+  digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
+  name = "github.com/pmezard/go-difflib"
+  packages = ["difflib"]
+  pruneopts = "UT"
+  revision = "792786c7400a136282c1664665ae0a8db921c6c2"
+  version = "v1.0.0"
+
+[[projects]]
+  digest = "1:18752d0b95816a1b777505a97f71c7467a8445b8ffb55631a7bf779f6ba4fa83"
+  name = "github.com/stretchr/testify"
+  packages = ["assert"]
+  pruneopts = "UT"
+  revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
+  version = "v1.2.2"
 
 [[projects]]
   digest = "1:8aeeec4536b28cd5e66dcdf935be7e15b661feb04402bb173c32c736aa59325b"
@@ -225,7 +252,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:5e318e970f3b9703ac597db7171f58a9c81cfd946ef5dbabb02d4f7f7903fea5"
+  digest = "1:3fb912d84447bae878e7ec5f00f3941e873fa213d96f65ad72c3eaeb8b9dfe21"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
@@ -233,6 +260,7 @@
     "googleapis/api/label",
     "googleapis/api/metric",
     "googleapis/api/monitoredres",
+    "googleapis/devtools/clouderrorreporting/v1beta1",
     "googleapis/devtools/cloudtrace/v2",
     "googleapis/logging/type",
     "googleapis/logging/v2",
@@ -283,16 +311,21 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "cloud.google.com/go/errorreporting",
     "cloud.google.com/go/logging",
     "contrib.go.opencensus.io/exporter/stackdriver",
+    "github.com/golang/protobuf/jsonpb",
     "github.com/golang/protobuf/proto",
     "github.com/pkg/errors",
+    "github.com/stretchr/testify/assert",
     "go.opencensus.io/plugin/ocgrpc",
     "go.opencensus.io/stats/view",
     "go.opencensus.io/trace",
     "go.uber.org/zap",
+    "go.uber.org/zap/zapcore",
     "golang.org/x/net/context",
     "google.golang.org/api/option",
+    "google.golang.org/genproto/googleapis/logging/v2",
     "google.golang.org/grpc",
     "google.golang.org/grpc/codes",
     "google.golang.org/grpc/status",

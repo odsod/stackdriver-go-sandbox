@@ -8,6 +8,8 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+const gitHubDotComPathSegment = "github.com/"
+
 func GitHubCallerEncoder(commitHash string) zapcore.CallerEncoder {
 	return func(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
 		gitHubURL, err := ParseGitHubURL(caller.File, caller.Line, commitHash)
@@ -18,8 +20,6 @@ func GitHubCallerEncoder(commitHash string) zapcore.CallerEncoder {
 		enc.AppendString(gitHubURL)
 	}
 }
-
-const gitHubDotComPathSegment = "github.com/"
 
 func ParseGitHubURL(filePath string, line int, commitHash string) (string, error) {
 	gitHubDotComIndex := strings.Index(filePath, gitHubDotComPathSegment)
@@ -33,11 +33,12 @@ func ParseGitHubURL(filePath string, line int, commitHash string) (string, error
 	var repoRootIndex = -1
 	for i, r := range gitHubDotComPath {
 		if r == '/' {
-			// github.com/<org>/<repo>/
-			//           1     2      3
 			numSlashes += 1
 		}
 		if numSlashes == 3 {
+			// github.com/<org>/<repo>/
+			//           1     2      3
+			//                        i
 			repoRootIndex = i
 			break
 		}
@@ -45,9 +46,10 @@ func ParseGitHubURL(filePath string, line int, commitHash string) (string, error
 	if repoRootIndex == -1 {
 		return "", errors.Errorf("invalid GitHub path: %v", filePath)
 	}
-	repoRoot := gitHubDotComPath[:repoRootIndex]
-	repoPath := gitHubDotComPath[repoRootIndex:]
-	gitHubURL := "https://" + repoRoot + "/blob/" + commitHash + repoPath +
+	repoRoot := gitHubDotComPath[:repoRootIndex] // without trailing slash
+	repoPath := gitHubDotComPath[repoRootIndex:] // with leading slash
+	gitHubURL := "https://" + repoRoot +
+		"/blob/" + commitHash + repoPath +
 		"#L" + strconv.FormatInt(int64(line), 10)
 	return gitHubURL, nil
 }

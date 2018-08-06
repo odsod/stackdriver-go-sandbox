@@ -8,8 +8,6 @@ import (
 	logpb "google.golang.org/genproto/googleapis/logging/v2"
 )
 
-const gitHubDotCom = "github.com/"
-
 // SourceLocator converts a zap EntryCaller to a LogEntrySourceLocation.
 type SourceLocator func(*zapcore.EntryCaller) *logpb.LogEntrySourceLocation
 
@@ -22,7 +20,8 @@ func NewGitHubSourceLocator(commitHash string) SourceLocator {
 		}
 		gitHubURL, err := zapgithub.ParseGitHubURL(caller.File, caller.Line, commitHash)
 		if err != nil {
-			return &logpb.LogEntrySourceLocation{File: caller.File, Line: int64(caller.Line)}
+			// Fall back to file and function source locator
+			return FileAndFunctionSourceLocator(caller)
 		}
 		return &logpb.LogEntrySourceLocation{File: gitHubURL}
 	}

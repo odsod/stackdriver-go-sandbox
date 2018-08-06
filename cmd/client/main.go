@@ -6,12 +6,14 @@ import (
 	"os"
 	"time"
 
+	"log"
+
+	"cloud.google.com/go/errorreporting"
 	"cloud.google.com/go/logging"
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/odsod/stackdriver-go-sandbox/api/sandbox"
 	"github.com/odsod/stackdriver-go-sandbox/internal/zapextra"
 	"github.com/odsod/stackdriver-go-sandbox/internal/zapgcp"
-	"github.com/odsod/stackdriver-go-sandbox/internal/zapgithub"
 	"github.com/pkg/errors"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/stats/view"
@@ -44,19 +46,29 @@ func main() {
 	}
 	gcpLogger := loggingClient.Logger("server")
 
+	// Init GCP error reporter
+	errorReportingClient, err := errorreporting.NewClient(ctx, *projectID, errorreporting.Config{
+		ServiceName:    "server",
+		ServiceVersion: *commitHash,
+		OnError: func(err error) {
+			log.Printf("Failed to report error to GCP: %+v", err)
+		},
+	}, option.WithCredentialsFile(*credentialsFile))
+	if err != nil {
+		panic(errors.Wrap(err, "failed to initialize GCP error reporting client"))
+	}
+
 	// Init GitHub source locator
+	callerEncoder := zapcore.ShortCallerEncoder
 	var sourceLocator zapgcp.SourceLocator
-	var callerEncoder zapcore.CallerEncoder
 	if *commitHash != "" {
 		sourceLocator = zapgcp.NewGitHubSourceLocator(*commitHash)
-		callerEncoder = zapgithub.GitHubCallerEncoder(*commitHash)
 	} else {
 		sourceLocator = zapgcp.FileAndFunctionSourceLocator
-		callerEncoder = zapcore.ShortCallerEncoder
 	}
 
 	// Init zap GCP logging
-	zapGCPCore := zapgcp.NewLoggingCore(
+	zapGCPLoggingCore := zapgcp.NewLoggingCore(
 		zap.InfoLevel,
 		zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
 			MessageKey:     "+", // anything non-"" includes message
@@ -69,8 +81,13 @@ func main() {
 		gcpLogger,
 		sourceLocator)
 
+	// Init zap GCP error reporting
+	zapGCPErrorReportingCore := zapgcp.NewErrorReportingCore(
+		zap.WarnLevel, errorReportingClient)
+
 	// Init zap console logging
 	consoleEncoderConfig := zap.NewDevelopmentEncoderConfig()
+	consoleEncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	consoleEncoderConfig.EncodeCaller = callerEncoder
 	zapConsoleCore := zapcore.NewCore(
 		zapcore.NewConsoleEncoder(consoleEncoderConfig),
@@ -78,7 +95,11 @@ func main() {
 		zap.InfoLevel)
 
 	// Create zap logger
-	logger := zap.New(zapcore.NewTee(zapConsoleCore, zapGCPCore)).WithOptions(zap.AddCaller(), zap.AddStacktrace(zap.WarnLevel))
+	logger := zap.New(zapcore.NewTee(
+		zapConsoleCore,
+		zapGCPLoggingCore,
+		zapGCPErrorReportingCore)).
+		WithOptions(zap.AddCaller(), zap.AddStacktrace(zap.WarnLevel))
 	if err != nil {
 		panic(errors.Wrap(err, "failed to initialize logging"))
 	}

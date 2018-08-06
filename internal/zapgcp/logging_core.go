@@ -84,7 +84,3 @@ func (core *loggingCore) Write(entry zapcore.Entry, fields []zapcore.Field) erro
 func (core *loggingCore) Sync() error {
 	return core.logger.Flush()
 }
-
-type StackTracer interface {
-	StackTrace() errors.StackTrace
-}
